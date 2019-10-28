@@ -1,6 +1,6 @@
 // Firmware for Henry's Robot Voicebox
 // George Hartzell 20191028
-//
+// See copyright notices at bottom of file.
 
 #include <Audio.h>
 #include <ILI9341_t3.h>
@@ -10,7 +10,44 @@
 #include <SerialFlash.h>
 #include <Wire.h>
 
-#include "effect_vocoder.h"
+#include <Audio.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+
+// GUItool: begin automatically generated code
+AudioInputI2S            i2s1;           //xy=249.4444465637207,138.33333015441895
+AudioSynthWaveformSine   sine1;          //xy=396,141
+AudioMixer4              mixer1;         //xy=400,71
+AudioMixer4              mixer2;         //xy=401,232
+AudioEffectMultiply      multiply1;      //xy=557,73
+AudioAnalyzeFFT1024      fft1024_1;      //xy=557.7777557373047,24.444462776184082
+AudioEffectMultiply      multiply2;      //xy=562,236
+AudioPlaySdWav           playSdWav1;     //xy=705,152
+AudioEffectEnvelope      envelope1;      //xy=708,75
+AudioEffectEnvelope      envelope2;      //xy=712,237
+AudioMixer4              mixer3;         //xy=900.7777786254883,105.77777862548828
+AudioMixer4              mixer4;         //xy=903.0000038146973,215.66666221618652
+AudioOutputI2S           i2s2;           //xy=1042.2222222222222,152.22222222222223
+AudioConnection          patchCord1(i2s1, 0, mixer1, 0);
+AudioConnection          patchCord2(i2s1, 1, mixer2, 0);
+AudioConnection          patchCord3(sine1, 0, multiply1, 1);
+AudioConnection          patchCord4(sine1, 0, multiply2, 0);
+AudioConnection          patchCord5(mixer1, 0, multiply1, 0);
+AudioConnection          patchCord6(mixer1, fft1024_1);
+AudioConnection          patchCord7(mixer2, 0, multiply2, 1);
+AudioConnection          patchCord8(multiply1, envelope1);
+AudioConnection          patchCord9(multiply2, envelope2);
+AudioConnection          patchCord10(playSdWav1, 0, mixer3, 1);
+AudioConnection          patchCord11(playSdWav1, 1, mixer4, 1);
+AudioConnection          patchCord12(envelope1, 0, mixer3, 0);
+AudioConnection          patchCord13(envelope2, 0, mixer4, 0);
+AudioConnection          patchCord14(mixer3, 0, i2s2, 0);
+AudioConnection          patchCord15(mixer4, 0, i2s2, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=385.55555555555554,342.22222222222223
+// GUItool: end automatically generated code
+
 
 const byte ROWS = 4; //four rows
 const byte COLS = 3; //three columns
@@ -76,33 +113,12 @@ const char *sound[] = {
 
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
 
-// GUItool: begin automatically generated code
-AudioInputI2S            i2s1;           //xy=105,98
-AudioPlaySdWav           playSdWav1;     //xy=125,247
-AudioEffectVocoder       vocoder;
-AudioMixer4              mixer1;         //xy=305,96
-AudioMixer4              mixer2;         //xy=306,181
-AudioOutputI2S           i2s2;           //xy=487,121
-AudioAnalyzeFFT1024      fft1024_1;      //xy=492,48
-AudioConnection          patchCord1(i2s1, 0, vocoder, 0);
-AudioConnection          patchCord2(vocoder, 0, mixer1, 0);
-AudioConnection          patchCord3(i2s1, 0, mixer1, 1);
-AudioConnection          patchCord4(playSdWav1, 0, mixer1, 2);
-AudioConnection          patchCord5(playSdWav1, 1, mixer2, 2);
-AudioConnection          patchCord6(mixer1, fft1024_1);
-AudioConnection          patchCord7(mixer1, 0, i2s2, 0);
-AudioConnection          patchCord8(mixer1, 0, i2s2, 1);
-AudioConnection          patchCord9(mixer2, 0, i2s2, 0);
-AudioConnection          patchCorda(mixer2, 1, i2s2, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=334,341
-// GUItool: end automatically generated code
-
 static int count = 0;
 static uint16_t line_buffer[320];
 static float scale = 1020.0;
 static int micGainKnob = 0;     // reads A1
 static int micGain = 42;         // computed value for micGain
-static float vol = 0.75;
+static float vol = 0.8;
 
 void setup(void) {
   Serial.begin(9600);
@@ -113,13 +129,28 @@ void setup(void) {
   sgtl5000_1.inputSelect(AUDIO_INPUT_MIC);
   sgtl5000_1.micGain(micGain);       // also adjusted by knob, below
 
-  mixer1.gain(0, 0.9);   // vocoder
-  mixer1.gain(1, 0.1);   // mic
-  mixer1.gain(2, 0.2);   // sdwav
+  // Play with the frequency of the sine wave, lower == growlier
+  sine1.frequency(30);
+  // amplitude of sine wave is floating point number from 0 to 1
+  sine1.amplitude(1.0);
+
+  float mixer_gain = 0.7;// 0.75; //0.25
+  mixer1.gain(0, mixer_gain);
+  mixer2.gain(0, mixer_gain);
+
+  mixer3.gain(0, 0.9);
+  mixer3.gain(1, 0.2);
+  mixer4.gain(0, 0.9);
+  mixer4.gain(1, 0.2);
+
+  envelope1.attack(1.5);
+  envelope1.hold(5);
+  envelope1.decay(20);
+  envelope2.attack(1.5);
+  envelope2.hold(5);
+  envelope2.decay(20);
 
   fft1024_1.windowFunction(NULL);
-
-  vocoder.setPitchShift(10);
 
   tft.begin();
   tft.fillScreen(ILI9341_BLACK);
@@ -140,7 +171,6 @@ void setup(void) {
       delay(500);
     }
   }
-  // delay(100);
   playSdWav1.play("STARTUP.WAV");
   delay(10); // wait for library to parse WAV info
 }
@@ -159,6 +189,11 @@ void loop() {
     tft.writeRect(0, count, 240, 1, (uint16_t*) &line_buffer);
     tft.setScroll(count++);
     count = count % 320;
+  }
+
+  if (! envelope1.isActive() && ! envelope2.isActive() ) {
+    envelope1.noteOn();
+    envelope2.noteOn();
   }
 
   char key = keypad.getKey();
