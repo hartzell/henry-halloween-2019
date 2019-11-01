@@ -1,6 +1,6 @@
 // Firmware for Henry's Robot Voicebox
 // George Hartzell 20191028
-// See copyright notices at bottom of file.
+// See copyright notices and credits at bottom of file.
 
 #include <Audio.h>
 #include <ILI9341_t3.h>
@@ -310,3 +310,6 @@ uint16_t colorMap(uint16_t val) {
 
 // Keypad bits from:
 // https://learn.adafruit.com/wave-shield-voice-changer
+
+// Voice effects based on Dalek effect described here:
+// https://forum.pjrc.com/threads/47157-Distort-Voice-to-Something-Scary-for-Halloween?p=157173&viewfull=1#post157173
