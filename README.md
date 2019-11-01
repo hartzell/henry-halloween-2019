@@ -17,3 +17,9 @@ The code is a crude mashup of various examples.
   waterfall display for tft, and voice effects.
 - pins.md -- document pins used
 - sounds -- WAV files
+
+## TODO
+
+- borsboom's vocoder:
+  - https://github.com/borsboom/vocoder
+  - https://borsboom.io/vocoder/
